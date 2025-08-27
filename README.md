@@ -1,6 +1,8 @@
-# Alcov
+# Alcov - Nooks and Crannies
 
-Abundance learning for SARS-CoV-2 variants. The primary purpose of the tool is:
+This is a fork of the `alcov` tool which is designed for estimation of abundances based on a subset of the genome. It is being designed to be used on the same file many many times to see how the choice of mutations affects the results.
+
+Abundance learning for SARS-CoV-2 variants *for particular subsets of the genome*. The primary purpose of the tool is:
 
 * Estimating abundace of variants of concern from wastewater sequencing data
 
