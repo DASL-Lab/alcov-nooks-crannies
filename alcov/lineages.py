@@ -336,9 +336,25 @@ def do_regression_linear(lmps, Y, muts):
     return X, [lin.solution_value() for lin in lins], mut_diffs
 
 
-def find_lineages_in_bam(bam_path, return_data=False, min_depth=40, lineages=[], unique=False, l2=False):
+def find_lineages_in_bam(bam_path, return_data=False, min_depth=40, lineages=[], unique=False, l2=False, windows=[[0, 30000]], cache=True, cache_path="/cache/"):
     import numpy as np
     import pysam
+    import os
+    import pickle
+
+
+    # TODO: only use mutations in window, make sure this works with cache.
+    # Try and cache as much as possible - would rather re-parse mutations than
+    # than re-load the original files.
+    # Learn how pickle saves/loads and see how much I can cache before subsetting genome.
+
+    if cache:
+        if not os.path.exists(cache_path):
+            os.makedirs(cache_path)
+
+        cache_path = cache_path + bam_path.split('/')[-1]
+        with open(cache_path, 'rb') as f:
+            return pickle.load(f)
 
     samfile = pysam.Samfile(bam_path, "rb")
 
@@ -347,6 +363,7 @@ def find_lineages_in_bam(bam_path, return_data=False, min_depth=40, lineages=[],
     # aa_mutations = [m for m in mut_lins.keys() if m[0] in ['N']] # Only N
     aa_blacklist = ['S:D614G'] # all lineages contain this now
     aa_mutations = [m for m in aa_mutations if m not in aa_blacklist]
+
     # lineages = ['Delta', 'BA.1']
     if len(lineages) == 0:
         lineages = list(mut_lins['C241T'].keys()) # arbitrary
@@ -401,12 +418,11 @@ def find_lineages_in_bam(bam_path, return_data=False, min_depth=40, lineages=[],
 
     if return_data:
         return sample_results, X, Y, covered_muts
-    # TODO: rethink information flow
-    # return sample_results, mut_diffs
+
     return sample_results
 
 
-def find_lineages(file_path, lineages_path, ts, csv, min_depth, show_stacked, unique, save_img, l2):
+def find_lineages(file_path, lineages_path, ts, csv, min_depth, show_stacked, unique, save_img, l2, windows=[[0, 30000]], cache=True, cache_path="/cache/"):
     """
     Accepts either a bam file or a tab delimited  txt file like
     s1.bam  Sample 1
@@ -424,7 +440,7 @@ def find_lineages(file_path, lineages_path, ts, csv, min_depth, show_stacked, un
         with open(lineages_path, 'r') as f:
             lineages = f.read().splitlines()
     if file_path.endswith('.bam'):
-        sr, X, Y, covered_muts = find_lineages_in_bam(file_path, True, min_depth, lineages, unique, l2)
+        sr, X, Y, covered_muts = find_lineages_in_bam(file_path, True, min_depth, lineages, unique, l2, windows, cache, cache_path)
         if show_stacked:
             show_lineage_predictions(sr, X, Y, covered_muts)
             show_lineage_pie(sr)
@@ -437,7 +453,7 @@ def find_lineages(file_path, lineages_path, ts, csv, min_depth, show_stacked, un
             if sample[0].endswith('.bam'): # Mostly for filtering empty
                 print('{}:'.format(sample[1]))
                 # sample_result, mut_diffs = find_lineages_in_bam(sample[0], False, min_depth, lineages, unique)
-                sample_result = find_lineages_in_bam(sample[0], False, min_depth, lineages, unique, l2)
+                sample_result = find_lineages_in_bam(sample[0], False, min_depth, lineages, unique, l2, windows, cache, cache_path)
                 if sample_result is not None and sum(sample_result.values()) > 0:
                     sample_results.append(sample_result)
                     sample_names.append(sample[1])
