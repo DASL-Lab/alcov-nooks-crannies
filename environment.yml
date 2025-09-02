@@ -1,4 +1,4 @@
-name: alcov
+name: alcov-nc
 channels:
   - bioconda
   - defaults
@@ -42,7 +42,6 @@ dependencies:
   - zlib=1.2.13=h5eee18b_1
   - pip:
       - absl-py==2.1.0
-      - alcov==1.1.33
       - bio==1.6.2
       - biopython==1.81
       - biothings-client==0.3.1
