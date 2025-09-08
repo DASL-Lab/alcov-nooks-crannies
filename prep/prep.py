@@ -15,9 +15,9 @@ Requires cutadapt, minimap2, samtools, and a reference genome (called sars-cov-2
 """
 #### Edit below for your system ####
 
-data_path = "all_fastq/" # Directory with all fastq files to process
-output_master = "Output/" # All outputs (sam, bam, bai) will end up here in separate directories for each sample
-REF = "/home/jknapp/data/REF/sars-cov-2.fasta" # Path to reference wildtype sequence in fasta format
+data_path = "/home/razzle/git/DASL-Lab/data-treatment-plant/data/fastq/" # Directory with all fastq files to process
+output_master = "/home/razzle/git/DASL-Lab/AlertFinding/data/output/" # All outputs (sam, bam, bai) will end up here in separate directories for each sample
+REF = "/home/razzle/git/DASL-Lab/data-treatment-plant/data/NC_045512.fa" # Path to reference wildtype sequence in fasta format
 
 #### Edit above for your system ####
 
@@ -48,46 +48,46 @@ for read1 in all_fastq:
         # ignore R2
         continue
     else:
-    # extract sample name
-    # assume all input fastq follow the same pattern: LAB-####_*_R1_*.fastq.gz
-    # each sample output is sorted into a separate folder with the name "LAB-####"
+        # extract sample name
+        # assume all input fastq follow the same pattern: LAB-####_*_R1_*.fastq.gz
+        # each sample output is sorted into a separate folder with the name "LAB-####"
         base = os.path.basename(read1).split("_")[0]
         output_dir_name = base+'/'
     
-    # If output directories do not exist, make them    
+        # If output directories do not exist, make them    
         output_dir = os.path.join(output_master, output_dir_name)
         if not os.path.isdir(output_dir):
             os.system("mkdir -p "+output_dir)
             continue
     
-    # Find the corresponding R2
+        # Find the corresponding R2
         read2 = data_path+os.path.basename(read1).replace('R1', 'R2')
         print("Aligning sample", base, ":", i, "out of", int(len(all_fastq) / 2)) 
         print("Using read1", read1, "and read2", read2)
     
-    # Trim off adapters using cutadapt
+        # Trim off adapters using cutadapt
         subprocess.run(['cutadapt', '-a', 'AGATCGGAAGAGC', '-A', 'AGATCGGAAGAGC', '-m', '1', '-o', read1.replace('.fastq.gz', 'prepped.fastq.gz'), '-p', read2.replace('.fastq.gz', 'prepped.fastq.gz'), read1, read2])	
         read1_prepped = read1.replace('.fastq.gz', 'prepped.fastq.gz')
         read2_prepped = read2.replace('.fastq.gz', 'prepped.fastq.gz')
   
-    # Run minimap2 commands: minimap2 -ax sr 'sars-cov-2.fasta' ~/Data/path/all_fastq/sample1_1.fastq.gz ~/Data/path/all_fastq/sample1_2.fastq.gz > sample1.sam
-      #   subprocess.run(['minimap2', '-ax', 'sr', 'sars-cov-2.fasta', 'read1_prepped', 'read2_prepped', '>', 'output_dir+base+.sam'])
+        # Run minimap2 commands: minimap2 -ax sr 'sars-cov-2.fasta' ~/Data/path/all_fastq/sample1_1.fastq.gz ~/Data/path/all_fastq/sample1_2.fastq.gz > sample1.sam
+        #subprocess.run(['minimap2', '-ax', 'sr', 'sars-cov-2.fasta', 'read1_prepped', 'read2_prepped', '>', 'output_dir+base+.sam'])
         system('minimap2 -ax sr {0} {1} {2} > {3}{4}.sam'.format(REF, read1_prepped, read2_prepped, output_dir, base))   
     
-    # Convert sam files to sorted bam files
+        # Convert sam files to sorted bam files
         print("Converting sam file to sorted bam file for", base)
         subprocess.run(['samtools', 'sort', '-o', output_dir+base+'-sorted.bam', output_dir+base+'.sam'])
     
-    # Index bam files    
+        # Index bam files    
         print("Indexing ", output_dir+base+'-sorted.bam')    
         subprocess.run(['samtools', 'index', output_dir+base+'-sorted.bam'])
 
-    # Remove large intermediate files
+        # Remove large intermediate files
         subprocess.run(['rm', read1_prepped])
         subprocess.run(['rm', read2_prepped])
         subprocess.run(['rm', output_dir+base+'.sam'])
 
-    # Adding the path for the bam file and the sample name to a list    
+        # Adding the path for the bam file and the sample name to a list    
         samples.append([output_dir+base+'-sorted.bam', base])
     
         i = i + 1
