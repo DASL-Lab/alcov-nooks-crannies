@@ -336,27 +336,25 @@ def do_regression_linear(lmps, Y, muts):
     return X, [lin.solution_value() for lin in lins], mut_diffs
 
 
-def find_lineages_in_bam(bam_path, return_data=False, min_depth=40, lineages=[], unique=False, l2=False, windows=[[0, 30000]], cache=True, cache_path="/cache/"):
-    import numpy as np
+def load_sam(bam_path, lineages, unique, aa_mutations, cache, cache_file=None):
     import pysam
-    import os
     import pickle
+    samfile = pysam.Samfile(bam_path, "rb")
 
-
-    # TODO: only use mutations in window, make sure this works with cache.
-    # Try and cache as much as possible - would rather re-parse mutations than
-    # than re-load the original files.
-    # Learn how pickle saves/loads and see how much I can cache before subsetting genome.
+    mut_results = find_mutants_in_bam(bam_path, aa_mutations)
 
     if cache:
-        if not os.path.exists(cache_path):
-            os.makedirs(cache_path)
+        print("Caching results to" + cache_file + ".")
+        with open(cache_file, "wb") as f:
+            pickle.dump(mut_results, f)
 
-        cache_path = cache_path + bam_path.split('/')[-1]
-        with open(cache_path, 'rb') as f:
-            return pickle.load(f)
+    return(mut_results)
 
-    samfile = pysam.Samfile(bam_path, "rb")
+def find_lineages_in_bam(bam_path, return_data=False, min_depth=40, lineages=[], unique=False, l2=False, windows=[[0, 30000]], cache=True, cache_path="./cache/"):
+    import numpy as np
+    import pickle
+    import os
+
 
     aa_mutations = [m for m in mut_lins.keys()]
     # aa_mutations = [m for m in mut_lins.keys() if m[0] in ['S']] # Only spike
@@ -364,11 +362,27 @@ def find_lineages_in_bam(bam_path, return_data=False, min_depth=40, lineages=[],
     aa_blacklist = ['S:D614G'] # all lineages contain this now
     aa_mutations = [m for m in aa_mutations if m not in aa_blacklist]
 
+    if unique:
+        aa_mutations = [mut for mut in aa_mutations if sum(mut_lins[mut][l] for l in lineages) == 1]
+
+    if cache:
+        if not os.path.exists(cache_path):
+            os.makedirs(cache_path)
+
+        cache_file = cache_path + bam_path.split('/')[-1]
+        if os.path.isfile(cache_file):
+            print("Found cached data, loading.")
+            with open(cache_file, 'rb') as f:
+                mut_results = pickle.load(f)
+        else:
+            mut_results = load_sam(bam_path=bam_path, lineages=lineages, unique=unique, aa_mutations = aa_mutations, cache=True, cache_file=cache_file)
+    else: 
+        mut_results = load_sam(bam_path=bam_path, lineages=lineages, unique=unique, aa_mutations = aa_mutations, cache=False)
+
     # lineages = ['Delta', 'BA.1']
     if len(lineages) == 0:
         lineages = list(mut_lins['C241T'].keys()) # arbitrary
-    if unique:
-        aa_mutations = [mut for mut in aa_mutations if sum(mut_lins[mut][l] for l in lineages) == 1]
+
     mutations = parse_mutations(aa_mutations)
     vocs = ['B.1.1.7', 'B.1.617.2', 'P.1', 'B.1.351']
     vois = ['B.1.525', 'B.1.526', 'B.1.617.1', 'C.37']
@@ -376,9 +390,11 @@ def find_lineages_in_bam(bam_path, return_data=False, min_depth=40, lineages=[],
     # lineages = vocs + vois
     # lineages = ['Omicron', 'BA.2', 'Delta']
 
-    mut_results = find_mutants_in_bam(bam_path, aa_mutations)
+    aa_pos = [int(aa[1:-1]) for aa in aa_mutations]
+    aa_valid = [any([pos >= win[0] and pos <= win[1] for win in windows]) for pos in aa_pos]
 
-    covered_muts = [m for m in aa_mutations if sum(mut_results[m]) >= min_depth]
+    covered_muts = [m for m in aa_mutations if aa_valid]
+    covered_muts = [m for m in covered_muts if sum(mut_results[m]) >= min_depth]
     if len(covered_muts) == 0:
         print('No coverage')
         return None
@@ -421,14 +437,26 @@ def find_lineages_in_bam(bam_path, return_data=False, min_depth=40, lineages=[],
 
     return sample_results
 
+"""
+TODO: 
+- Suppress output for each run!!!
+- Save csv with filename based on `window_path`s
+- Ensure the class definition in __init__.py matches args here.
+"""
 
-def find_lineages(file_path, lineages_path, ts, csv, min_depth, show_stacked, unique, save_img, l2, windows=[[0, 30000]], cache=True, cache_path="/cache/"):
+def find_lineages(file_path, lineages_path, ts, csv, min_depth, show_stacked, unique, save_img, l2, window_path, cache, cache_path):
     """
     Accepts either a bam file or a tab delimited  txt file like
     s1.bam  Sample 1
     s2.bam  Sample 2
     """
 
+
+    if window_path is not None:
+        with open(window_path, "r") as f:
+            windows = [[int(x) for x in line.split()] for line in f]
+    else:
+        windows = [[0, 30000]]
     sample_results = []
     sample_mut_diffs = defaultdict(list)
     sample_names = []
