@@ -4,7 +4,7 @@ with open('README.md', 'r', encoding='utf-8') as fh:
     long_description = fh.read()
 
 setup(
-    name='alcov',
+    name='alcov-nc',
     version='1.1.48',
     description='Identify frequencies of concerning mutations from aligned reads',
     long_description=long_description,
@@ -13,9 +13,9 @@ setup(
     author_email='isaac.ellmen@uwaterloo.ca',
     maintainer='Jenn Knapp',
     maintainer_email='jenn.knapp@uwaterloo.ca',
-    packages=['alcov'],
+    packages=['alcov_nc'],
     exclude_package_data={
-	'alcov': ['data'],
+	'alcov_nc': ['data'],
 	},
     url='https://github.com/Ellmen/alcov',
     install_requires=[
@@ -28,6 +28,6 @@ setup(
         'pysam',
     ],
     entry_points={
-        'console_scripts': ['alcov=alcov.command_line:main'],
+        'console_scripts': ['alcov_nc=alcov_nc.command_line:main'],
     }
 )

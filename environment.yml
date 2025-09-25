@@ -1,4 +1,4 @@
-name: alcov-nc
+name: alcov_nc
 channels:
   - bioconda
   - defaults
